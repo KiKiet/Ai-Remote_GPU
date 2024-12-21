@@ -11,6 +11,30 @@ export default function Home() {
   const [resultImage, setResultImage] = useState(null);
   const [status, setStatus] = useState("");
   const [imageFiles, setImageFiles] = useState([]);
+  const [runpodApiKey, setRunpodApiKey] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    // Lấy API key từ localStorage khi component được mount
+    const storedApiKey = localStorage.getItem("runpodApiKey");
+    if (storedApiKey) {
+      setRunpodApiKey(storedApiKey);
+    }
+  }, []);
+
+  const handleRunpodApiKeyChange = (e) => {
+    setRunpodApiKey(e.target.value);
+  };
+
+  const handleSaveApiKey = () => {
+    // Lưu API key vào localStorage
+    localStorage.setItem("runpodApiKey", runpodApiKey);
+    alert("API key saved!");
+  };
+
+  const handleTogglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
 
   useEffect(() => {
     const randomSeed = Math.floor(Math.random() * 999999999999999) + 1;
@@ -127,8 +151,7 @@ export default function Home() {
           payload,
           {
             headers: {
-              Authorization:
-                "Bearer ",
+              Authorization: `Bearer ${runpodApiKey}`, // Sử dụng runpodApiKey
               "Content-Type": "application/json",
             },
           },
@@ -143,8 +166,7 @@ export default function Home() {
               `https://api.runpod.ai/v2/${gpuId}/status/${requestId}`,
               {
                 headers: {
-                  Authorization:
-                    "Bearer ",
+                  Authorization: `Bearer ${runpodApiKey}`,
                 },
               },
             );
@@ -190,6 +212,36 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-between p-24">
       <form onSubmit={handleSubmit} className="workflow-form w-96 bg-white p-6 rounded-lg shadow-md">
         <div className="mb-4">
+          <label htmlFor="runpodApiKey" className="block text-gray-700 font-bold mb-2">
+            RunPod API Key:
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              id="runpodApiKey"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              value={runpodApiKey}
+              onChange={handleRunpodApiKeyChange}
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center">
+              <button
+                type="button"
+                className="h-full px-3 text-gray-700 bg-gray-200 rounded-r" // Thêm bg-gray-200 và rounded-r
+                onClick={handleTogglePasswordVisibility}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mb-4"
+          onClick={handleSaveApiKey}
+        >
+          Save API Key
+        </button>
+        <div className="mb-4">
           <label htmlFor="gpuId" className="block text-gray-700 font-bold mb-2">
             RunPod GPU ID:
           </label>
@@ -201,19 +253,22 @@ export default function Home() {
             onChange={handleGpuIdChange}
           />
         </div>
-        <div className="mb-4">
+        <div className="mb-4 relative">
           <label htmlFor="workflowType" className="block text-gray-700 font-bold mb-2">
             Workflow Type:
           </label>
           <select
             id="workflowType"
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline pr-8"
             value={workflowType}
             onChange={handleWorkflowTypeChange}
           >
             <option value="comfyui">ComfyUI</option>
             <option value="invokeai">InvokeAI</option>
           </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+          </div>
         </div>
         <div className="mb-4">
           <label htmlFor="workflowFile" className="block text-gray-700 font-bold mb-2">

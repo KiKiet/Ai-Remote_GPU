@@ -14,7 +14,9 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className={inter.className}>
         <Navbar /> {/* Use the Client Component for navigation */}
-        {children}
+        <div className="mt-16"> 
+          {children}
+        </div>
       </body>
     </html>
   );

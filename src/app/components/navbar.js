@@ -12,7 +12,7 @@ export default function Navbar() {
       : "text-gray-300 hover:bg-gray-700 hover:text-white"; // Inactive link
 
   return (
-    <nav className="bg-gray-800 p-4">
+    <nav className="bg-gray-800 p-4 fixed w-full top-0 z-50">
       <div className="mx-auto max-w-7xl flex items-center justify-between">
         <Link href="/" className="text-white text-xl font-bold">
           AI Image Generator

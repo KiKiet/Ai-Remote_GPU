@@ -34,8 +34,7 @@ export default function ModelManagement() {
         payload,
         {
           headers: {
-            Authorization:
-              "Bearer ",
+            Authorization: `Bearer ${localStorage.getItem("runpodApiKey")}`,
             "Content-Type": "application/json",
           },
         },
@@ -50,8 +49,7 @@ export default function ModelManagement() {
             `https://api.runpod.ai/v2/${gpuId}/status/${requestId}`,
             {
               headers: {
-                Authorization:
-                  "Bearer ",
+                Authorization: `Bearer ${localStorage.getItem("runpodApiKey")}`,
               },
             },
           );
@@ -92,8 +90,7 @@ export default function ModelManagement() {
         payload,
         {
           headers: {
-            Authorization:
-              "Bearer ",
+            Authorization: `Bearer ${localStorage.getItem("runpodApiKey")}`,
             "Content-Type": "application/json",
           },
         },
@@ -106,8 +103,7 @@ export default function ModelManagement() {
             `https://api.runpod.ai/v2/${gpuId}/status/${requestId}`,
             {
               headers: {
-                Authorization:
-                  "Bearer ",
+                Authorization: `Bearer ${localStorage.getItem("runpodApiKey")}`,
               },
             },
           );
