@@ -19,3 +19,38 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.folder-tree {
+  max-height: 400px; /* Giới hạn chiều cao tối đa */
+}
+
+.folder-tree > div { /* Kiểu dáng cho các mục trong cây thư mục */
+  margin-bottom: 4px;
+}
+
+.folder-tree .cursor-pointer { /* Kiểu dáng cho tên thư mục */
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.folder-tree .cursor-pointer:hover {
+  background-color: #e2e8f0; /* Màu nền khi hover */
+}
+
+.folder-tree li { /* Chọn tất cả các li trong folder-tree */
+  overflow: hidden; /* Ẩn phần văn bản bị tràn ra ngoài */
+  text-overflow: ellipsis; /* Thêm dấu ba chấm (...) cho phần văn bản bị ẩn */
+  white-space: nowrap; /* Ngăn văn bản xuống dòng */
+}
+
+.folder-tree li:hover::after { /* Hiển thị tên đầy đủ khi hover */
+  content: attr(title); /* Lấy giá trị từ thuộc tính title */
+  position: absolute; 
+  left: 0;
+  bottom: 0;
+  padding: 4px;
+  background-color: rgba(0, 0, 0, 0.7); 
+  color: white;
+  white-space: normal; /* Cho phép văn bản xuống dòng */
+  z-index: 10; /* Đảm bảo tooltip hiển thị trên các phần tử khác */
+}
