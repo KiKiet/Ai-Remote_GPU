@@ -35,7 +35,7 @@ export default function ModelManagement() {
         {
           headers: {
             Authorization:
-              "Bearer XGGD7MI5WGU43NKZB119Y0KXUICE8QNSX0D1RUVL",
+              "Bearer ",
             "Content-Type": "application/json",
           },
         },
@@ -51,7 +51,7 @@ export default function ModelManagement() {
             {
               headers: {
                 Authorization:
-                  "Bearer XGGD7MI5WGU43NKZB119Y0KXUICE8QNSX0D1RUVL",
+                  "Bearer ",
               },
             },
           );
@@ -93,7 +93,7 @@ export default function ModelManagement() {
         {
           headers: {
             Authorization:
-              "Bearer XGGD7MI5WGU43NKZB119Y0KXUICE8QNSX0D1RUVL",
+              "Bearer ",
             "Content-Type": "application/json",
           },
         },
@@ -107,7 +107,7 @@ export default function ModelManagement() {
             {
               headers: {
                 Authorization:
-                  "Bearer XGGD7MI5WGU43NKZB119Y0KXUICE8QNSX0D1RUVL",
+                  "Bearer ",
               },
             },
           );
