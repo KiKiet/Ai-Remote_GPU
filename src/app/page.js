@@ -13,6 +13,9 @@ export default function Home() {
   const [imageFiles, setImageFiles] = useState([]);
   const [runpodApiKey, setRunpodApiKey] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [modelsToChoose, setModelsToChoose] = useState([]); // Stores models to choose from
+  const [availableModels, setAvailableModels] = useState([]); // Stores available models from RunPod
+  const [selectedModels, setSelectedModels] = useState({}); // Stores selected models
 
   useEffect(() => {
     // Lấy API key từ localStorage khi component được mount
@@ -49,25 +52,141 @@ export default function Home() {
     setWorkflowType(e.target.value);
   };
 
+  function generateJsonFormat(inputJson, batchId, origin, destination, graphId) {
+    // Initialize the output JSON structure
+    const outputJson = {
+      batch: {
+        batch_id: batchId,
+        origin: origin,
+        destination: destination,
+        data: [],
+        graph: {
+          id: graphId,
+          nodes: {},
+          edges: []
+        },
+        workflow: inputJson, // Append the original JSON file
+        runs: 1
+      },
+      prepend: false
+    };
+  
+    // Populate nodes if they are not null or empty
+  if (inputJson.nodes && inputJson.nodes.length > 0) {
+    inputJson.nodes.forEach(node => {
+      // Skip adding nodes with null or empty values
+      if (node && node.data) {
+        const formattedNode = {
+          id: node.id,
+          is_intermediate: node.data.isIntermediate || false,
+          use_cache: node.data.useCache || false,
+          ...Object.keys(node.data.inputs || {}).reduce((inputs, key) => {
+            const inputValue = node.data.inputs[key]?.value;
+            if (inputValue !== null && inputValue !== undefined) {
+              inputs[key] = inputValue;
+            }
+            return inputs;
+          }, {}),
+          type: node.data.type
+        };
+
+        // Only add the node if it has valid properties
+        if (Object.keys(formattedNode).length > 3) { // Ensures the node is not empty beyond metadata
+          outputJson.batch.graph.nodes[node.id] = formattedNode;
+        }
+      }
+    });
+  }
+
+  // Populate edges if they exist
+  if (inputJson.edges && inputJson.edges.length > 0) {
+    inputJson.edges.forEach(edge => {
+      if (edge && edge.source && edge.target) {
+        // Only add the edge if the field is not null
+        const sourceField = edge.sourceHandle || null;
+        const targetField = edge.targetHandle || null;
+  
+        if (sourceField !== null || targetField !== null) {
+          outputJson.batch.graph.edges.push({
+            source: {
+              node_id: edge.source,
+              field: sourceField
+            },
+            destination: {
+              node_id: edge.target,
+              field: targetField
+            }
+          });
+        }
+      }
+    });
+  }
+  
+    return outputJson;
+  }
+
   const handleWorkflowFileChange = (e) => {
     setWorkflowFile(e.target.files[0]);
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const workflowData = JSON.parse(e.target.result);
+        if (workflowType === "invokeai") {
+          // Extract models from the workflow JSON
+          const models = [];
+          workflowData.nodes.forEach((node) => {
+            if (node.data.inputs) {
+              Object.values(node.data.inputs).forEach((input) => {
+                if (input.value && input.value.type) {
+                  models.push({
+                    type: input.value.type,
+                    key: input.value.key,
+                    hash: input.value.hash,
+                    name: input.value.name,
+                  });
+                }
+              });
+            }
+          });
+
+          setModelsToChoose(models); // Set models to choose from
+          fetchAvailableModels(); // Fetch available models from RunPod
+
+        // Extract image nodes from InvokeAI workflow
         const imageNodes = [];
-        for (const nodeId in workflowData) {
-          const node = workflowData[nodeId];
-          if (node.class_type === "LoadImage" && node.inputs.image) {
-            imageNodes.push({
-              nodeId: nodeId,
-              imageName: node.inputs.image,
+        workflowData.nodes.forEach(node => {
+          if (node.data && node.data.inputs) {
+            Object.entries(node.data.inputs).forEach(([inputName, input]) => {
+              if (input.value && input.value.image_name) {
+                imageNodes.push({
+                  nodeId: node.id,
+                  imageName: input.value.image_name
+                });
+              }
             });
           }
-        }
+        });
 
+        // Initialize image file array if image nodes found
         if (imageNodes.length > 0) {
           setImageFiles(Array(imageNodes.length).fill(null));
+        }
+        }
+        else if (workflowType == "comfyui") {
+          const imageNodes = [];
+          for (const nodeId in workflowData) {
+            const node = workflowData[nodeId];
+          if (node.class_type === "LoadImage" && node.inputs.image) {
+            imageNodes.push({
+                nodeId: nodeId,
+                imageName: node.inputs.image,
+              });
+            }
+          }
+
+          if (imageNodes.length > 0) {
+            setImageFiles(Array(imageNodes.length).fill(null));
+          }
         }
       } catch (error) {
         console.error("Error parsing workflow JSON:", error);
@@ -77,10 +196,143 @@ export default function Home() {
       reader.readAsText(e.target.files[0]);
     }
   };
+  const fetchAvailableModels = async () => {
+    try {
+      const payload = {
+        input: {
+          get_models_tree_invokeai: true,
+        },
+      };
+  
+      const response = await axios.post(
+        `https://api.runpod.ai/v2/${gpuId}/run`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${runpodApiKey}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+  
+      const requestId = response.data.id;
+      const intervalId = setInterval(async () => {
+        try {
+          const statusResponse = await axios.get(
+            `https://api.runpod.ai/v2/${gpuId}/status/${requestId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${runpodApiKey}`,
+              },
+            }
+          );
+  
+          if (statusResponse.data.status === "COMPLETED") {
+            clearInterval(intervalId);
+            // Ensure availableModels is always an array
+            console.log(statusResponse.data.output);
+            const models = statusResponse.data.output.data || [];
+            console.log(models);
+            setAvailableModels(models);
+          }
+        } catch (error) {
+          clearInterval(intervalId);
+          console.error("Error fetching available models:", error);
+          setAvailableModels([]); // Fallback to an empty array
+        }
+      }, 3000);
+    } catch (error) {
+      console.error("Error fetching available models:", error);
+      setAvailableModels([]); // Fallback to an empty array
+    }
+  };
+
+  const handleModelSelection = (modelKey, selectedKey) => {
+    setSelectedModels((prev) => ({
+      ...prev,
+      [modelKey]: selectedKey,
+    }));
+  };
 
   const handleSeedChange = (e) => {
     setSeed(e.target.value);
   };
+
+  function handleSubmitComfyUi(workflowData) {
+    let hasSeedInput = false;
+    for (const nodeId in workflowData) {
+      const node = workflowData[nodeId];
+      if (node.class_type === "KSampler" && "seed" in node.inputs) {
+        hasSeedInput = true;
+        if (!seed) {
+          const randomSeed =
+            Math.floor(Math.random() * 999999999999999) + 1;
+          node.inputs.seed = randomSeed;
+        } else {
+          node.inputs.seed = parseInt(seed, 10);
+        }
+        break;
+      }
+    }
+
+    let imageIndex = 0;
+    for (const nodeId in workflowData) {
+      const node = workflowData[nodeId];
+      if (node.class_type === "LoadImage" && node.inputs.image) {
+        if (imageFiles[imageIndex]) {
+          workflowData[nodeId].inputs.image = imageFiles[imageIndex].name;
+        }
+        imageIndex++;
+      }
+    }
+    return workflowData;
+  }
+
+  function replaceModelData(workflowData) {
+    // Iterate through each node in the workflow
+    for (const nodeId in workflowData.nodes) {
+      const node = workflowData.nodes[nodeId];
+      
+      // Check if node has model inputs
+      if (node.data && node.data.inputs) {
+        const inputs = node.data.inputs;
+        
+        // Check each input field that could contain a model
+        for (const inputKey in inputs) {
+          const input = inputs[inputKey];
+          if (input && input.value && input.value.type) {
+            // Get the model type from the value
+            const modelType = input.value.type.toLowerCase();
+            
+            // Find matching model from selected models
+            for (const [modelKey, selectedKey] of Object.entries(selectedModels)) {
+              const selectedModel = availableModels.find(m => m.key === selectedKey);
+              
+              if (selectedModel && selectedModel.type.toLowerCase() === modelType) {
+                // Replace model data
+                input.value = {
+                  key: selectedModel.key,
+                  hash: selectedModel.hash,
+                  name: selectedModel.name,
+                  base: selectedModel.base,
+                  type: selectedModel.type
+                };
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    return workflowData;
+  }
+
+  function handleSubmitInvokeAI(workflowData) {
+    workflowData = replaceModelData(workflowData);
+    console.log(workflowData);
+    workflowData = generateJsonFormat(workflowData, "92113d53-e114-41c3-b767-f09fc654ccc3", "workflow", "gallery", "20f85f73-7dd9-4e27-8ce8-1e0b3b103374")
+    return workflowData
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -93,33 +345,12 @@ export default function Home() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const workflowData = JSON.parse(e.target.result);
+        let workflowData = JSON.parse(e.target.result);
 
-        let hasSeedInput = false;
-        for (const nodeId in workflowData) {
-          const node = workflowData[nodeId];
-          if (node.class_type === "KSampler" && "seed" in node.inputs) {
-            hasSeedInput = true;
-            if (!seed) {
-              const randomSeed =
-                Math.floor(Math.random() * 999999999999999) + 1;
-              node.inputs.seed = randomSeed;
-            } else {
-              node.inputs.seed = parseInt(seed, 10);
-            }
-            break;
-          }
-        }
-
-        let imageIndex = 0;
-        for (const nodeId in workflowData) {
-          const node = workflowData[nodeId];
-          if (node.class_type === "LoadImage" && node.inputs.image) {
-            if (imageFiles[imageIndex]) {
-              workflowData[nodeId].inputs.image = imageFiles[imageIndex].name;
-            }
-            imageIndex++;
-          }
+        if(workflowType == "comfyui") {
+          workflowData = handleSubmitComfyUi(workflowData);
+        } else {
+          workflowData =handleSubmitInvokeAI(workflowData);
         }
 
         const encodedImages = await Promise.all(
@@ -309,6 +540,31 @@ export default function Home() {
             onChange={handleSeedChange}
           />
         </div>
+        {/* Model selection form for InvokeAI */}
+        {workflowType === "invokeai" &&
+          modelsToChoose.map((model, index) => (
+            <div key={index} className="mb-4">
+              <label htmlFor={`model-${index}`} className="block text-gray-700 font-bold mb-2">
+                Choose {model.type} model:
+              </label>
+              <select
+                id={`model-${index}`}
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                onChange={(e) => handleModelSelection(model.key, e.target.value)}
+              >
+                <option value="">Select a model</option>
+                {availableModels &&
+                  Array.isArray(availableModels) &&
+                  availableModels
+                    .filter((m) => m.type === model.type)
+                    .map((m) => (
+                      <option key={m.key} value={m.key}>
+                        {m.name}
+                      </option>
+                    ))}
+              </select>
+            </div>
+          ))}
         <button
           type="submit"
           className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"

@@ -42,6 +42,14 @@ export default function Navbar() {
           >
             Editor ComfyUI
           </Link>
+          <Link
+            href="/editorinvokeai"
+            className={`px-3 py-2 rounded-md text-sm font-medium transition duration-300 ${getLinkClass(
+              "/editorinvokeai"
+            )}`}
+          >
+            Editor InvokeAI
+          </Link>
         </div>
       </div>
     </nav>
